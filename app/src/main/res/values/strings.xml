@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">SlackCodingChallenge</string>
+    <string name="email_header">EMAIL</string>
+    <string name="skype_header">SKYPE</string>
+    <string name="phone_header">PHONE</string>
+
 </resources>
