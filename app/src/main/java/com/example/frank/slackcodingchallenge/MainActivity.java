@@ -1,13 +1,9 @@
 package com.example.frank.slackcodingchallenge;
 
-import android.app.Activity;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListAdapter;
@@ -24,11 +20,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -146,6 +137,14 @@ public class MainActivity extends AppCompatActivity {
                         String email = profile.getString(NODE_PROFILE_EMAIL);
                         String skype = profile.getString(NODE_PROFILE_SKYPE);
                         String phone = profile.getString(NODE_PROFILE_PHONE);
+
+                        // Make all phone numbers in the format xxx-xxx-xxxx
+                        // ASSUMES ALL PHONE NUMBERS PROVIDED ARE 7 DIGITS
+                        phone = phone.replace("-","");
+                        String areacode = phone.substring(0,3).concat("-");
+                        String part1 = phone.substring(3,6).concat("-");
+                        String part2 = phone.substring(6,10);
+                        phone = areacode + part1 + part2;
 
                         String imageURL24 = profile.getString(NODE_PROFILE_IMAGE_24);
                         String imageURL32 = profile.getString(NODE_PROFILE_IMAGE_32);
