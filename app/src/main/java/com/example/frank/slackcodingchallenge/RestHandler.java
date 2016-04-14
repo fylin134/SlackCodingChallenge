@@ -65,5 +65,4 @@ public class RestHandler {
 
         return response;
     }
-
 }

@@ -1,6 +1,10 @@
 package com.example.frank.slackcodingchallenge;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -20,6 +24,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -42,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     public static final String NODE_PROFILE_FIRST_NAME = "first_name";
     public static final String NODE_PROFILE_LAST_NAME = "last_name";
     public static final String NODE_PROFILE_REAL_NAME = "real_name";
+    public static final String NODE_PROFILE_TITLE = "title";
     public static final String NODE_PROFILE_EMAIL = "email";
     public static final String NODE_PROFILE_SKYPE = "skype";
     public static final String NODE_PROFILE_PHONE = "phone";
@@ -57,7 +67,6 @@ public class MainActivity extends AppCompatActivity {
     // List that holds each users info
     private ArrayList<HashMap<String,String>> mUsersList;
 
-
     private JSONArray mUsers;
     private String jsonString;
 
@@ -71,7 +80,6 @@ public class MainActivity extends AppCompatActivity {
         mUserListView = (ListView) findViewById(R.id.usersList);
         ImageLoaderConfiguration config = new ImageLoaderConfiguration.Builder(this).build();
         ImageLoader.getInstance().init(config);
-
 
         mUserListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -90,11 +98,28 @@ public class MainActivity extends AppCompatActivity {
                 intent.putExtra(NODE_PROFILE_IMAGE_192, info.get(NODE_PROFILE_IMAGE_192));
                 startActivity(intent);
             }
-            //TODO- Start new activity for individual user's profile page
         });
 
+        // Check for network
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo network = cm.getActiveNetworkInfo();
+        boolean isConnected = network != null && network.isConnectedOrConnecting();
+        String cahce = getPreferences(0).getString("cache", null);
 
-        new GetUsersList().execute();
+        if(!isConnected){
+            // If first time launch (i.e. cachedData file does not exist)
+            if(getPreferences(0).getString("cache", null) == null){
+                Toast.makeText(this, "No Internet connection detected...", Toast.LENGTH_SHORT).show();
+            }
+            // Use cached data
+            else{
+
+            }
+        }
+        // If there IS internet connection BUT no cached data, make a web service query
+        else if(cahce == null){
+            new GetUsersList().execute();
+        }
     }
 
     /***
@@ -117,6 +142,8 @@ public class MainActivity extends AppCompatActivity {
             params.add(new BasicNameValuePair("token", AUTHTOKEN));
             jsonString = restHandler.makeCall(url, RestHandler.GET, params);
 
+            HashMap<String,String> userInfo = null;
+
             if(jsonString != null){
                 try{
                     JSONObject jsonObject = new JSONObject(jsonString);
@@ -127,54 +154,73 @@ public class MainActivity extends AppCompatActivity {
                     for(int i=0; i<mUsers.length(); i++){
                         JSONObject user = mUsers.getJSONObject(i);
 
+                        // Create a hashmap to save name,value pair of user info
+                        userInfo = new HashMap<String, String>();
+
                         String id = user.getString(NODE_ID);
                         String name = user.getString(NODE_NAME);
 
                         JSONObject profile = user.getJSONObject(NODE_PROFILE);
-                        String firstName = profile.getString(NODE_PROFILE_FIRST_NAME);
-                        String lastName = profile.getString(NODE_PROFILE_LAST_NAME);
                         String realName = profile.getString(NODE_PROFILE_REAL_NAME);
-                        String email = profile.getString(NODE_PROFILE_EMAIL);
-                        String skype = profile.getString(NODE_PROFILE_SKYPE);
-                        String phone = profile.getString(NODE_PROFILE_PHONE);
+                        userInfo.put(NODE_PROFILE_REAL_NAME, realName);
 
+                        String title = profile.getString(NODE_PROFILE_TITLE);
+                        userInfo.put(NODE_PROFILE_TITLE, title);
+
+                        String email = profile.getString(NODE_PROFILE_EMAIL);
+                        userInfo.put(NODE_PROFILE_EMAIL, email);
+
+                        String skype = profile.getString(NODE_PROFILE_SKYPE);
+                        userInfo.put(NODE_PROFILE_SKYPE, skype);
+
+                        String phone = profile.getString(NODE_PROFILE_PHONE);
                         // Make all phone numbers in the format xxx-xxx-xxxx
                         // ASSUMES ALL PHONE NUMBERS PROVIDED ARE 7 DIGITS
                         phone = phone.replace("-","");
                         String areacode = phone.substring(0,3).concat("-");
                         String part1 = phone.substring(3,6).concat("-");
-                        String part2 = phone.substring(6,10);
+                        String part2 = phone.substring(6, 10);
                         phone = areacode + part1 + part2;
+                        userInfo.put(NODE_PROFILE_PHONE, phone);
 
                         String imageURL24 = profile.getString(NODE_PROFILE_IMAGE_24);
-                        String imageURL32 = profile.getString(NODE_PROFILE_IMAGE_32);
-                        String imageURL48 = profile.getString(NODE_PROFILE_IMAGE_48);
-                        String imageURL72 = profile.getString(NODE_PROFILE_IMAGE_72);
-                        String imageURL192 = profile.getString(NODE_PROFILE_IMAGE_192);
-
-                        // Create a hashmap to save name,value pair of user info
-                        HashMap<String, String> userInfo = new HashMap<String, String>();
-                        userInfo.put(NODE_PROFILE_REAL_NAME, realName);
-                        userInfo.put(NODE_PROFILE_EMAIL, email);
-                        userInfo.put(NODE_PROFILE_SKYPE, skype);
-                        userInfo.put(NODE_PROFILE_PHONE, phone);
                         userInfo.put(NODE_PROFILE_IMAGE_24, imageURL24);
+                        String imageURL32 = profile.getString(NODE_PROFILE_IMAGE_32);
                         userInfo.put(NODE_PROFILE_IMAGE_32, imageURL32);
+                        String imageURL48 = profile.getString(NODE_PROFILE_IMAGE_48);
                         userInfo.put(NODE_PROFILE_IMAGE_48, imageURL48);
+                        String imageURL72 = profile.getString(NODE_PROFILE_IMAGE_72);
                         userInfo.put(NODE_PROFILE_IMAGE_72, imageURL72);
+                        String imageURL192 = profile.getString(NODE_PROFILE_IMAGE_192);
                         userInfo.put(NODE_PROFILE_IMAGE_192, imageURL192);
-
-                        // Add user info to master list
-                        mUsersList.add(userInfo);
                     }
-                } catch (JSONException e) {
+                    // Cache user info to local file
+                    File cacheDir = getCacheDir();
+                    File cachedData = new File(cacheDir, "userData");
+                    try {
+                        FileOutputStream fos = openFileOutput(cachedData.getName(), Context.MODE_PRIVATE);
+                        ObjectOutputStream oos = new ObjectOutputStream(fos);
+                        oos.writeObject(mUsersList);
+                        oos.close();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    // Keep a record of cached data file name
+                    SharedPreferences prefs = getPreferences(0);
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putString("cache", cachedData.getAbsolutePath());
+                    editor.commit();
+                }
+                catch (JSONException e) {
                     e.printStackTrace();
                 }
+                finally {
+                    // Add user info to master list
+                    mUsersList.add(userInfo);
+                }
             }
-            else{
-                Toast.makeText(getApplicationContext(), "Error retrieving Slack data.", Toast.LENGTH_SHORT).show();
-            }
-
             return null;
         }
 
@@ -183,8 +229,8 @@ public class MainActivity extends AppCompatActivity {
             super.onPostExecute(result);
             // Update usersList ListView with new parsed JSON data
             ListAdapter adapter = new SimpleAdapter(getApplicationContext(), mUsersList, R.layout.list_item,
-                    new String[]{NODE_PROFILE_REAL_NAME,NODE_PROFILE_EMAIL},
-                    new int[]{R.id.name,R.id.email});
+                    new String[]{NODE_PROFILE_REAL_NAME,NODE_PROFILE_TITLE},
+                    new int[]{R.id.name,R.id.title});
             mUserListView.setAdapter(adapter);
         }
     }
