@@ -8,6 +8,7 @@ import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListAdapter;
@@ -25,9 +26,11 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
     private ArrayList<HashMap<String,String>> mUsersList;
 
     private JSONArray mUsers;
-    private String jsonString;
+    private String mJsonString;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,6 +94,8 @@ public class MainActivity extends AppCompatActivity {
                 intent.putExtra(NODE_PROFILE_EMAIL, info.get(NODE_PROFILE_EMAIL));
                 intent.putExtra(NODE_PROFILE_SKYPE, info.get(NODE_PROFILE_SKYPE));
                 intent.putExtra(NODE_PROFILE_PHONE, info.get(NODE_PROFILE_PHONE));
+                intent.putExtra(NODE_PROFILE_TITLE, info.get(NODE_PROFILE_TITLE));
+                intent.putExtra(NODE_NAME, info.get(NODE_NAME));
                 intent.putExtra(NODE_PROFILE_IMAGE_24, info.get(NODE_PROFILE_IMAGE_24));
                 intent.putExtra(NODE_PROFILE_IMAGE_32, info.get(NODE_PROFILE_IMAGE_32));
                 intent.putExtra(NODE_PROFILE_IMAGE_48, info.get(NODE_PROFILE_IMAGE_48));
@@ -100,26 +105,54 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Setup toolbar
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar.setTitle("Slack Test Team User List");
+        setSupportActionBar(toolbar);
+
         // Check for network
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo network = cm.getActiveNetworkInfo();
         boolean isConnected = network != null && network.isConnectedOrConnecting();
-        String cahce = getPreferences(0).getString("cache", null);
+        String cache = getPreferences(0).getString("cache", null);
 
         if(!isConnected){
             // If first time launch (i.e. cachedData file does not exist)
-            if(getPreferences(0).getString("cache", null) == null){
+            if(cache == null){
                 Toast.makeText(this, "No Internet connection detected...", Toast.LENGTH_SHORT).show();
             }
             // Use cached data
             else{
-
+                readCachedData(cache);
             }
         }
         // If there IS internet connection BUT no cached data, make a web service query
-        else if(cahce == null){
+        else if(cache == null){
             new GetUsersList().execute();
         }
+        else{
+            readCachedData(cache);
+        }
+    }
+
+    /***
+     * Read from the cache data file to pull user list data
+     * @param cacheFileDir - String representation of the cache file directory
+     */
+    private void readCachedData(String cacheFileDir){
+        try {
+            ObjectInputStream oin = new ObjectInputStream(new FileInputStream(cacheFileDir));
+            mUsersList = (ArrayList<HashMap<String,String>>) oin.readObject();
+            oin.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        ListAdapter adapter = new SimpleAdapter(getApplicationContext(), mUsersList, R.layout.list_item,
+                new String[]{NODE_PROFILE_REAL_NAME,NODE_PROFILE_TITLE},
+                new int[]{R.id.name,R.id.title});
+        mUserListView.setAdapter(adapter);
     }
 
     /***
@@ -140,18 +173,23 @@ public class MainActivity extends AppCompatActivity {
             // Make HTTP call with params
             List<NameValuePair> params = new LinkedList<NameValuePair>();
             params.add(new BasicNameValuePair("token", AUTHTOKEN));
-            jsonString = restHandler.makeCall(url, RestHandler.GET, params);
+            mJsonString = restHandler.makeCall(url, RestHandler.GET, params);
 
-            HashMap<String,String> userInfo = null;
-
-            if(jsonString != null){
-                try{
-                    JSONObject jsonObject = new JSONObject(jsonString);
-
+            if(mJsonString != null){
+                try {
+                    JSONObject jsonObject = new JSONObject(mJsonString);
                     mUsers = jsonObject.getJSONArray(NODE_MEMBERS);
+                }
+                catch (JSONException e) {
+                    e.printStackTrace();
+                }
 
+                HashMap<String,String> userInfo = null;
+
+                try{
                     // loop through all users
                     for(int i=0; i<mUsers.length(); i++){
+                        userInfo = null;
                         JSONObject user = mUsers.getJSONObject(i);
 
                         // Create a hashmap to save name,value pair of user info
@@ -159,6 +197,7 @@ public class MainActivity extends AppCompatActivity {
 
                         String id = user.getString(NODE_ID);
                         String name = user.getString(NODE_NAME);
+                        userInfo.put(NODE_NAME, name);
 
                         JSONObject profile = user.getJSONObject(NODE_PROFILE);
                         String realName = profile.getString(NODE_PROFILE_REAL_NAME);
@@ -193,34 +232,38 @@ public class MainActivity extends AppCompatActivity {
                         userInfo.put(NODE_PROFILE_IMAGE_72, imageURL72);
                         String imageURL192 = profile.getString(NODE_PROFILE_IMAGE_192);
                         userInfo.put(NODE_PROFILE_IMAGE_192, imageURL192);
+
+                        mUsersList.add(userInfo);
                     }
-                    // Cache user info to local file
-                    File cacheDir = getCacheDir();
-                    File cachedData = new File(cacheDir, "userData");
-                    try {
-                        FileOutputStream fos = openFileOutput(cachedData.getName(), Context.MODE_PRIVATE);
-                        ObjectOutputStream oos = new ObjectOutputStream(fos);
-                        oos.writeObject(mUsersList);
-                        oos.close();
-                    } catch (FileNotFoundException e) {
-                        e.printStackTrace();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    // Keep a record of cached data file name
-                    SharedPreferences prefs = getPreferences(0);
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.putString("cache", cachedData.getAbsolutePath());
-                    editor.commit();
                 }
                 catch (JSONException e) {
                     e.printStackTrace();
                 }
-                finally {
-                    // Add user info to master list
+                finally{
+                    // Add user info - ensures that if a JSONException occurrs due to
+                    // missing JSON response fields, that userinfo is still addded
                     mUsersList.add(userInfo);
                 }
             }
+            // Cache user info to local file
+            File cacheDir = getCacheDir();
+            File cachedData = new File(cacheDir, "userData");
+            try {
+                FileOutputStream fos = new FileOutputStream(cachedData);
+                ObjectOutputStream oos = new ObjectOutputStream(fos);
+                oos.writeObject(mUsersList);
+                oos.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            // Keep a record of cached data file name
+            SharedPreferences prefs = getPreferences(0);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString("cache", cachedData.getAbsolutePath());
+            editor.commit();
+
             return null;
         }
 

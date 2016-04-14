@@ -10,6 +10,8 @@ import android.widget.TextView;
 
 import com.nostra13.universalimageloader.core.ImageLoader;
 
+import org.w3c.dom.Text;
+
 /**
  * Created by Frank on 4/13/2016.
  */
@@ -31,9 +33,18 @@ public class UserProfileActivity extends AppCompatActivity {
 
         // Populate user profile picture
         ImageView pic = (ImageView) findViewById(R.id.image_profile);
-        ImageLoader.getInstance().displayImage(intent.getStringExtra(MainActivity.NODE_PROFILE_IMAGE_192), pic);
+        if(intent.getStringExtra(MainActivity.NODE_PROFILE_IMAGE_192) != null){
+            ImageLoader.getInstance().displayImage(intent.getStringExtra(MainActivity.NODE_PROFILE_IMAGE_192), pic);
+        }
+        else{
+          pic.setBackgroundResource(R.drawable.ic_slack_icon);
+        }
 
         // Populate profile info
+        TextView username = (TextView) findViewById(R.id.text_username);
+        username.setText("@"+intent.getStringExtra(MainActivity.NODE_NAME));
+        TextView title = (TextView) findViewById(R.id.text_title);
+        title.setText(intent.getStringExtra(MainActivity.NODE_PROFILE_TITLE));
         TextView email = (TextView) findViewById(R.id.text_email);
         email.setText(intent.getStringExtra(MainActivity.NODE_PROFILE_EMAIL));
         TextView skype = (TextView) findViewById(R.id.text_skype);
