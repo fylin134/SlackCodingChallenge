@@ -49,10 +49,17 @@ public class UserProfileActivity extends AppCompatActivity {
         title.setText(intent.getStringExtra(MainActivity.NODE_PROFILE_TITLE));
         TextView email = (TextView) findViewById(R.id.text_email);
         email.setText(intent.getStringExtra(MainActivity.NODE_PROFILE_EMAIL));
-        TextView skype = (TextView) findViewById(R.id.text_skype);
-        skype.setText(intent.getStringExtra(MainActivity.NODE_PROFILE_SKYPE));
         TextView phone = (TextView) findViewById(R.id.text_phone);
         phone.setText(intent.getStringExtra(MainActivity.NODE_PROFILE_PHONE));
+
+        String skypeName = intent.getStringExtra(MainActivity.NODE_PROFILE_SKYPE);
+        TextView skype = (TextView) findViewById(R.id.text_skype);
+        if(skypeName == null || skypeName.equals("")){
+            skype.setText("No Skype username available");
+        }
+        else{
+            skype.setText(skypeName);
+        }
     }
 
     @Override

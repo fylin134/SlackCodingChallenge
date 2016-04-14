@@ -161,6 +161,63 @@ public class MainActivity extends AppCompatActivity {
         mUserListView.setAdapter(adapter);
     }
 
+    private void cacheUserData(){
+        // Cache user info to local file
+        File cacheDir = getCacheDir();
+        File cachedData = new File(cacheDir, "userData");
+        try {
+            FileOutputStream fos = new FileOutputStream(cachedData);
+            ObjectOutputStream oos = new ObjectOutputStream(fos);
+            oos.writeObject(mUsersList);
+            oos.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        // Keep a record of cached data file name
+        SharedPreferences prefs = getPreferences(0);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString("cache", cachedData.getAbsolutePath());
+        editor.commit();
+
+    }
+
+    /***
+     * Downloads and saves an image to cache
+     * @param imageURL - String representation of the url to download the image
+     * @param uniqueID - Integer to differentiate a cached image.
+     * @return - File representing the saved image
+     */
+    private File cacheImageFromURL(String imageURL, int uniqueID){
+        // Download image
+        Bitmap imageBitmap = null;
+        try{
+            URL url = new URL(imageURL);
+            imageBitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream());
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // Save image to cache
+        File cacheDir = getCacheDir();
+        File cachedImage = new File(cacheDir, "cachedImage"+uniqueID);
+        try{
+            FileOutputStream fos = new FileOutputStream(cachedImage);
+            imageBitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+            fos.flush();
+            fos.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return cachedImage;
+    }
+
     /***
      * Async task to make Slack users.list HTTP call
      */
@@ -252,31 +309,7 @@ public class MainActivity extends AppCompatActivity {
                                 image = profile.getString(NODE_PROFILE_IMAGE_24);
                                 break;
                         }
-                        // Download image
-                        Bitmap imageBitmap = null;
-                        try{
-                            URL url = new URL(image);
-                            imageBitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream());
-                        } catch (MalformedURLException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-
-                        // Save image to cache
-                        File cacheDir = getCacheDir();
-                        File cachedImage = new File(cacheDir, "cachedImage"+i);
-                        try{
-                            FileOutputStream fos = new FileOutputStream(cachedImage);
-                            imageBitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
-                            fos.flush();
-                            fos.close();
-                        } catch (FileNotFoundException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        userInfo.put(TAG_IMAGE, cachedImage.getAbsolutePath().toString());
+                        userInfo.put(TAG_IMAGE, cacheImageFromURL(image, i).getAbsolutePath().toString());
 
                         mUsersList.add(userInfo);
                     }
@@ -290,25 +323,7 @@ public class MainActivity extends AppCompatActivity {
                     mUsersList.add(userInfo);
                 }
             }
-            // Cache user info to local file
-            File cacheDir = getCacheDir();
-            File cachedData = new File(cacheDir, "userData");
-            try {
-                FileOutputStream fos = new FileOutputStream(cachedData);
-                ObjectOutputStream oos = new ObjectOutputStream(fos);
-                oos.writeObject(mUsersList);
-                oos.close();
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            // Keep a record of cached data file name
-            SharedPreferences prefs = getPreferences(0);
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.putString("cache", cachedData.getAbsolutePath());
-            editor.commit();
-
+            cacheUserData();
             return null;
         }
 
