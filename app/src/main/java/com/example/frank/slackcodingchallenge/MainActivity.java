@@ -3,6 +3,8 @@ package com.example.frank.slackcodingchallenge;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
@@ -32,6 +34,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -63,7 +67,13 @@ public class MainActivity extends AppCompatActivity {
     public static final String NODE_PROFILE_IMAGE_48 = "image_48";
     public static final String NODE_PROFILE_IMAGE_72 = "image_72";
     public static final String NODE_PROFILE_IMAGE_192 = "image_192";
+    public static final String TAG_IMAGE = "image";
 
+    private static final String MDPI = "1.0";
+    private static final String HDPI = "1.5";
+    private static final String XHDPI = "2.0";
+    private static final String XXHDPI = "3.0";
+    private static final String XXXHDPI = "4.0";
 
     // View that will display all users
     private ListView mUserListView;
@@ -96,11 +106,7 @@ public class MainActivity extends AppCompatActivity {
                 intent.putExtra(NODE_PROFILE_PHONE, info.get(NODE_PROFILE_PHONE));
                 intent.putExtra(NODE_PROFILE_TITLE, info.get(NODE_PROFILE_TITLE));
                 intent.putExtra(NODE_NAME, info.get(NODE_NAME));
-                intent.putExtra(NODE_PROFILE_IMAGE_24, info.get(NODE_PROFILE_IMAGE_24));
-                intent.putExtra(NODE_PROFILE_IMAGE_32, info.get(NODE_PROFILE_IMAGE_32));
-                intent.putExtra(NODE_PROFILE_IMAGE_48, info.get(NODE_PROFILE_IMAGE_48));
-                intent.putExtra(NODE_PROFILE_IMAGE_72, info.get(NODE_PROFILE_IMAGE_72));
-                intent.putExtra(NODE_PROFILE_IMAGE_192, info.get(NODE_PROFILE_IMAGE_192));
+                intent.putExtra(TAG_IMAGE, info.get(TAG_IMAGE));
                 startActivity(intent);
             }
         });
@@ -222,16 +228,55 @@ public class MainActivity extends AppCompatActivity {
                         phone = areacode + part1 + part2;
                         userInfo.put(NODE_PROFILE_PHONE, phone);
 
-                        String imageURL24 = profile.getString(NODE_PROFILE_IMAGE_24);
-                        userInfo.put(NODE_PROFILE_IMAGE_24, imageURL24);
-                        String imageURL32 = profile.getString(NODE_PROFILE_IMAGE_32);
-                        userInfo.put(NODE_PROFILE_IMAGE_32, imageURL32);
-                        String imageURL48 = profile.getString(NODE_PROFILE_IMAGE_48);
-                        userInfo.put(NODE_PROFILE_IMAGE_48, imageURL48);
-                        String imageURL72 = profile.getString(NODE_PROFILE_IMAGE_72);
-                        userInfo.put(NODE_PROFILE_IMAGE_72, imageURL72);
-                        String imageURL192 = profile.getString(NODE_PROFILE_IMAGE_192);
-                        userInfo.put(NODE_PROFILE_IMAGE_192, imageURL192);
+                        // Pick image based on user's screen density
+                        double density = getResources().getDisplayMetrics().density;
+                        String d = ""+density;
+                        String image = null;
+                        switch (d){
+                            case MDPI:
+                                image = profile.getString(NODE_PROFILE_IMAGE_24);
+                                break;
+                            case HDPI:
+                                image = profile.getString(NODE_PROFILE_IMAGE_32);
+                                break;
+                            case XHDPI:
+                                image = profile.getString(NODE_PROFILE_IMAGE_48);
+                                break;
+                            case XXHDPI:
+                                image = profile.getString(NODE_PROFILE_IMAGE_72);
+                                break;
+                            case XXXHDPI:
+                                image = profile.getString(NODE_PROFILE_IMAGE_192);
+                                break;
+                            default:
+                                image = profile.getString(NODE_PROFILE_IMAGE_24);
+                                break;
+                        }
+                        // Download image
+                        Bitmap imageBitmap = null;
+                        try{
+                            URL url = new URL(image);
+                            imageBitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream());
+                        } catch (MalformedURLException e) {
+                            e.printStackTrace();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        // Save image to cache
+                        File cacheDir = getCacheDir();
+                        File cachedImage = new File(cacheDir, "cachedImage"+i);
+                        try{
+                            FileOutputStream fos = new FileOutputStream(cachedImage);
+                            imageBitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+                            fos.flush();
+                            fos.close();
+                        } catch (FileNotFoundException e) {
+                            e.printStackTrace();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        userInfo.put(TAG_IMAGE, cachedImage.getAbsolutePath().toString());
 
                         mUsersList.add(userInfo);
                     }

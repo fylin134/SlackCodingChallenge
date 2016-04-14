@@ -1,6 +1,7 @@
 package com.example.frank.slackcodingchallenge;
 
 import android.content.Intent;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -33,8 +34,9 @@ public class UserProfileActivity extends AppCompatActivity {
 
         // Populate user profile picture
         ImageView pic = (ImageView) findViewById(R.id.image_profile);
-        if(intent.getStringExtra(MainActivity.NODE_PROFILE_IMAGE_192) != null){
-            ImageLoader.getInstance().displayImage(intent.getStringExtra(MainActivity.NODE_PROFILE_IMAGE_192), pic);
+        String imagePath = intent.getStringExtra(MainActivity.TAG_IMAGE);
+        if(imagePath != null){
+            pic.setBackground(Drawable.createFromPath(imagePath));
         }
         else{
           pic.setBackgroundResource(R.drawable.ic_slack_icon);
